@@ -28,17 +28,6 @@ func (u *UserController) Signup(c *gin.Context) {
 		// return nothing
 		return
 	}
-
-	/*
-		You can add your validation logic
-		here such as email
-
-		if regexMethodChecker(data.Email) {
-			c.JSON(400, gin.H{"message": "Email is invalid"})
-			c.Abort()
-			return
-		}
-	*/
 	result, _ := userModel.GetUserByEmail(data.Email)
 
 	// If there happens to be a result respond with a
@@ -50,6 +39,21 @@ func (u *UserController) Signup(c *gin.Context) {
 	}
 
 	err := userModel.Signup(data)
+
+	resetToken, _ := services.GenerateNonAuthToken(data.Email)
+
+	link := "http://localhost:5000/api/v1/verify-account?verify_token=" + resetToken
+	body := "Here is your reset <a href='" + link + "'>link</a>"
+	html := "<strong>" + body + "</strong>"
+
+	email := services.SendMail("Verify Account", body, data.Email, html, data.Name)
+
+	// If email fails while sending
+	if !email {
+		c.JSON(500, gin.H{"message": "An issue occured sending you an email"})
+		c.Abort()
+		return
+	}
 
 	// Check if there was an error when saving user
 	if err != nil {
@@ -81,6 +85,12 @@ func (u *UserController) Login(c *gin.Context) {
 		return
 	}
 
+	if !result.IsVerified {
+		c.JSON(403, gin.H{"message": "Account is not verified"})
+		c.Abort()
+		return
+	}
+
 	if err != nil {
 		c.JSON(400, gin.H{"message": "Problem logging into your account"})
 		c.Abort()
@@ -100,7 +110,7 @@ func (u *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	jwtToken, err2 := services.GenerateToken(data.Email)
+	jwtToken, refreshToken, err2 := services.GenerateToken(data.Email)
 
 	// If we fail to generate token for access
 	if err2 != nil {
@@ -109,7 +119,7 @@ func (u *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Log in success", "token": jwtToken})
+	c.JSON(200, gin.H{"message": "Log in success", "token": jwtToken, "refresh_token": refreshToken})
 }
 
 // PasswordReset handles user password request
@@ -130,7 +140,7 @@ func (u *UserController) PasswordReset(c *gin.Context) {
 
 	resetToken, _ := c.GetQuery("reset_token")
 
-	userID, _ := services.DecodeInfiniteToken(resetToken)
+	userID, _ := services.DecodeNonAuthToken(resetToken)
 
 	result, err := userModel.GetUserByEmail(userID)
 
@@ -188,7 +198,7 @@ func (u *UserController) ResetLink(c *gin.Context) {
 		return
 	}
 
-	resetToken, _ := services.GenerateInfiniteToken(result.Email)
+	resetToken, _ := services.GenerateNonAuthToken(result.Email)
 
 	link := "http://localhost:5000/api/v1/password-reset?reset_token=" + resetToken
 	body := "Here is your reset <a href='" + link + "'>link</a>"
@@ -205,4 +215,111 @@ func (u *UserController) ResetLink(c *gin.Context) {
 		c.Abort()
 		return
 	}
+}
+
+// VerifyLink handles resending email to user to reset link
+func (u *UserController) VerifyLink(c *gin.Context) {
+	var data forms.ResendCommand
+
+	if (c.BindJSON(&data)) != nil {
+		c.JSON(400, gin.H{"message": "Provided all fields"})
+		c.Abort()
+		return
+	}
+
+	result, err := userModel.GetUserByEmail(data.Email)
+
+	if result.Email == "" {
+		c.JSON(404, gin.H{"message": "User account was not found"})
+		c.Abort()
+		return
+	}
+
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Something wrong happened, try again later"})
+		c.Abort()
+		return
+	}
+
+	resetToken, _ := services.GenerateNonAuthToken(result.Email)
+
+	link := "http://localhost:5000/api/v1/verify-account?verify_token=" + resetToken
+	body := "Here is your reset <a href='" + link + "'>link</a>"
+	html := "<strong>" + body + "</strong>"
+
+	email := services.SendMail("Verify Account", body, result.Email, html, result.Name)
+
+	if email == true {
+		c.JSON(200, gin.H{"messsage": "Check mail"})
+		c.Abort()
+		return
+	} else {
+		c.JSON(500, gin.H{"message": "An issue occured sending you an email"})
+		c.Abort()
+		return
+	}
+}
+
+// VerifyAccount handles user password request
+func (u *UserController) VerifyAccount(c *gin.Context) {
+	verifyToken, _ := c.GetQuery("verify_token")
+
+	userID, _ := services.DecodeNonAuthToken(verifyToken)
+
+	result, err := userModel.GetUserByEmail(userID)
+
+	if err != nil {
+		// Return response when we get an error while fetching user
+		c.JSON(500, gin.H{"message": "Something wrong happened, try again later"})
+		c.Abort()
+		return
+	}
+
+	if result.Email == "" {
+		c.JSON(404, gin.H{"message": "User accoun was not found"})
+		c.Abort()
+		return
+	}
+
+	// Update user account
+	_err := userModel.VerifyAccount(userID)
+
+	if _err != nil {
+		// Return response if we are not able to update user password
+		c.JSON(500, gin.H{"message": "Something happened while verifying you account, try again"})
+		c.Abort()
+		return
+	}
+
+	c.JSON(201, gin.H{"message": "Account verified, log in"})
+}
+
+// RefreshToken handles refresh token
+func (u *UserController) RefreshToken(c *gin.Context) {
+	refreshToken := c.Request.Header["Refreshtoken"]
+
+	if refreshToken == nil {
+		c.JSON(403, gin.H{"message": "No refresh token provided"})
+		c.Abort()
+		return
+	}
+
+	email, err := services.DecodeRefreshToken(refreshToken[0])
+
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Problem refreshing your session"})
+		c.Abort()
+		return
+	}
+
+	// Create new token
+	accessToken, _refreshToken, _err := services.GenerateToken(email)
+
+	if _err != nil {
+		c.JSON(500, gin.H{"message": "Problem creating new session"})
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Log in success", "token": accessToken, "refresh_token": _refreshToken})
 }

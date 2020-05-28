@@ -54,10 +54,19 @@ func (u *UserModel) GetUserByID(id string) (user User, err error) {
 }
 
 // UpdateUserPass handles updating user password
-func (u *UserModel) UpdateUserPass(id string, password string) (err error) {
+func (u *UserModel) UpdateUserPass(email string, password string) (err error) {
 	collection := dbConnect.Use(databaseName, "user")
 
-	err = collection.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"password": password}})
+	err = collection.Update(bson.M{"email": email}, bson.M{"$set": bson.M{"password": password}})
+
+	return err
+}
+
+// VerifyAccount handles verifying user
+func (u *UserModel) VerifyAccount(email string) (err error) {
+	collection := dbConnect.Use(databaseName, "user")
+
+	err = collection.Update(bson.M{"email": email}, bson.M{"$set": bson.M{"is_verified": true}})
 
 	return err
 }
