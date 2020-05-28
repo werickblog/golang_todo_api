@@ -122,7 +122,7 @@ func (u *UserController) PasswordReset(c *gin.Context) {
 		return
 	}
 
-	if (data.Password != data.Confirm) {
+	if data.Password != data.Confirm {
 		c.JSON(400, gin.H{"message": "Passwords do not match"})
 		c.Abort()
 		return
@@ -132,7 +132,7 @@ func (u *UserController) PasswordReset(c *gin.Context) {
 
 	userID, _ := services.DecodeInfiniteToken(resetToken)
 
-	result, err := userModel.GetUserByID(userID)
+	result, err := userModel.GetUserByEmail(userID)
 
 	if err != nil {
 		// Return response when we get an error while fetching user
@@ -140,7 +140,7 @@ func (u *UserController) PasswordReset(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	
+
 	if result.Email == "" {
 		c.JSON(404, gin.H{"message": "User accoun was not found"})
 		c.Abort()
@@ -162,4 +162,47 @@ func (u *UserController) PasswordReset(c *gin.Context) {
 	c.JSON(201, gin.H{"message": "Password has been updated, log in"})
 	c.Abort()
 	return
+}
+
+// ResetLink handles resending email to user to reset link
+func (u *UserController) ResetLink(c *gin.Context) {
+	var data forms.ResendCommand
+
+	if (c.BindJSON(&data)) != nil {
+		c.JSON(400, gin.H{"message": "Provided all fields"})
+		c.Abort()
+		return
+	}
+
+	result, err := userModel.GetUserByEmail(data.Email)
+
+	if result.Email == "" {
+		c.JSON(404, gin.H{"message": "User account was not found"})
+		c.Abort()
+		return
+	}
+
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Something wrong happened, try again later"})
+		c.Abort()
+		return
+	}
+
+	resetToken, _ := services.GenerateInfiniteToken(result.Email)
+
+	link := "http://localhost:5000/api/v1/password-reset?reset_token=" + resetToken
+	body := "Here is your reset <a href='" + link + "'>link</a>"
+	html := "<strong>" + body + "</strong>"
+
+	email := services.SendMail("Reset Password", body, result.Email, html, result.Name)
+
+	if email == true {
+		c.JSON(200, gin.H{"messsage": "Check mail"})
+		c.Abort()
+		return
+	} else {
+		c.JSON(500, gin.H{"message": "An issue occured sending you an email"})
+		c.Abort()
+		return
+	}
 }

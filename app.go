@@ -43,6 +43,8 @@ func main() {
 		v1.POST("/login", user.Login)
 		// Password reset
 		v1.PUT("/password-reset", user.PasswordReset)
+		// Send reset link
+		v1.PUT("/reset-link", user.ResetLink)
 	}
 
 	// Handle error response when a route is not defined

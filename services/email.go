@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/sendgrid/sendgrid-go"
@@ -19,22 +18,19 @@ type EmailObject struct {
 var emailPass = []byte(os.Getenv("MAIL_SECRET"))
 
 // SendMail method to send email to user
-func SendMail() {
+func SendMail(subject string, body string, to string, html string, name string) bool {
 	fmt.Println(os.Getenv("SENDGRID_API_KEY"))
 
-	from := mail.NewEmail("Test User", os.Getenv("SENDGRID_FROM_MAIL"))
-	subject := "Sending with Twilio SendGrid is Fun"
-	to := mail.NewEmail("Test User", "ewachira254@gmail.com")
-	plainTextContent := "and easy to do anywhere, even with Go"
-	htmlContent := "<strong>and easy to do anywhere, even with Go</strong>"
-	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
+	from := mail.NewEmail("Just Open it", os.Getenv("SENDGRID_FROM_MAIL"))
+	_to := mail.NewEmail("", to)
+	plainTextContent := body
+	htmlContent := html
+	message := mail.NewSingleEmail(from, subject, _to, plainTextContent, htmlContent)
 	client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
 	response, err := client.Send(message)
 	if err != nil {
-		log.Println(err)
+		return false
 	} else {
-		fmt.Println(response.StatusCode)
-		fmt.Println(response.Body)
-		fmt.Println(response.Headers)
+		return true
 	}
 }
