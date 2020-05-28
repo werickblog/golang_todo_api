@@ -43,3 +43,21 @@ func (u *UserModel) GetUserByEmail(email string) (user User, err error) {
 	err = collection.Find(bson.M{"email": email}).One(&user)
 	return user, err
 }
+
+// GetUserByID handles fetching user by id
+func (u *UserModel) GetUserByID(id string) (user User, err error) {
+	collection := dbConnect.Use(databaseName, "user")
+
+	err = collection.Find(bson.M{"_id": id}).One(&user)
+
+	return user, err
+}
+
+// UpdateUserPass handles updating user password
+func (u *UserModel) UpdateUserPass(id string, password string) (err error) {
+	collection := dbConnect.Use(databaseName, "user")
+
+	err = collection.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"password": password}})
+
+	return err
+}

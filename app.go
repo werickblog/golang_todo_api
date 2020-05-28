@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/tesh254/golang_todo_api/services"
 	// Log items to the terminal
 	"log"
 
@@ -21,6 +22,7 @@ func init() {
 }
 
 func main() {
+	services.SendMail()
 	// Init gin router
 	router := gin.Default()
 
@@ -39,6 +41,8 @@ func main() {
 		v1.POST("/signup", user.Signup)
 		// Create the login endpoint
 		v1.POST("/login", user.Login)
+		// Password reset
+		v1.PUT("/password-reset", user.PasswordReset)
 	}
 
 	// Handle error response when a route is not defined

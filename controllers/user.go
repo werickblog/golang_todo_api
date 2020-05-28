@@ -111,3 +111,55 @@ func (u *UserController) Login(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "Log in success", "token": jwtToken})
 }
+
+// PasswordReset handles user password request
+func (u *UserController) PasswordReset(c *gin.Context) {
+	var data forms.PasswordResetCommand
+
+	if c.BindJSON(&data) != nil {
+		c.JSON(406, gin.H{"message": "Provide relevant fields"})
+		c.Abort()
+		return
+	}
+
+	if (data.Password != data.Confirm) {
+		c.JSON(400, gin.H{"message": "Passwords do not match"})
+		c.Abort()
+		return
+	}
+
+	resetToken, _ := c.GetQuery("reset_token")
+
+	userID, _ := services.DecodeInfiniteToken(resetToken)
+
+	result, err := userModel.GetUserByID(userID)
+
+	if err != nil {
+		// Return response when we get an error while fetching user
+		c.JSON(500, gin.H{"message": "Something wrong happened, try again later"})
+		c.Abort()
+		return
+	}
+	
+	if result.Email == "" {
+		c.JSON(404, gin.H{"message": "User accoun was not found"})
+		c.Abort()
+		return
+	}
+	// Hash the new password
+	newHashedPassword := helpers.GeneratePasswordHash([]byte(data.Password))
+
+	// Update user account
+	_err := userModel.UpdateUserPass(userID, newHashedPassword)
+
+	if _err != nil {
+		// Return response if we are not able to update user password
+		c.JSON(500, gin.H{"message": "Somehting happened while updating your password try again"})
+		c.Abort()
+		return
+	}
+
+	c.JSON(201, gin.H{"message": "Password has been updated, log in"})
+	c.Abort()
+	return
+}
