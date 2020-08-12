@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tesh254/golang_todo_api/forms"
 	"github.com/tesh254/golang_todo_api/helpers"
@@ -84,6 +86,8 @@ func (u *UserController) Login(c *gin.Context) {
 		c.Abort()
 		return
 	}
+
+	fmt.Println(result)
 
 	if !result.IsVerified {
 		c.JSON(403, gin.H{"message": "Account is not verified"})
@@ -209,11 +213,9 @@ func (u *UserController) ResetLink(c *gin.Context) {
 	if email == true {
 		c.JSON(200, gin.H{"messsage": "Check mail"})
 		c.Abort()
-		return
 	} else {
 		c.JSON(500, gin.H{"message": "An issue occured sending you an email"})
 		c.Abort()
-		return
 	}
 }
 

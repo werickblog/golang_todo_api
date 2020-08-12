@@ -10,7 +10,7 @@ import (
 var server = os.Getenv("DATABASE")
 
 // Database name
-var databaseName = os.Getenv("DATABASE_NAME")
+var databaseName = "bookmarker"
 
 // Create a connection
 var dbConnect = db.NewConnection(server, databaseName)

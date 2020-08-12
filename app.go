@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	// Import our app controllers
 	"github.com/tesh254/golang_todo_api/controllers"
+	"github.com/tesh254/golang_todo_api/middlewares"
 )
 
 // init gets called before the main function
@@ -35,6 +36,10 @@ func main() {
 
 		// Define the user controller
 		user := new(controllers.UserController)
+
+		// Define the link controller
+		link := new(controllers.BookmarkController)
+
 		// Create the signup endpoint
 		v1.POST("/signup", user.Signup)
 		// Create the login endpoint
@@ -49,6 +54,16 @@ func main() {
 		v1.PUT("/verify-account", user.VerifyAccount)
 		// Refresh token
 		v1.GET("/refresh", user.RefreshToken)
+
+		bookmarks := v1.Group("/bookmarks")
+
+		bookmarks.Use(middlewares.Authenticate())
+
+		{
+			bookmarks.GET("/all", link.FetchBookmarks)
+			bookmarks.POST("/create", link.CreateBookmak)
+			bookmarks.DELETE("/delete", link.DeleteBookmark)
+		}
 	}
 
 	// Handle error response when a route is not defined
